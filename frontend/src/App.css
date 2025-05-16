@@ -1,0 +1,11 @@
+/* Prevents horizontal overflow */
+html, body {
+    overflow-x: hidden;
+  }
+  
+  /* Ensures the body takes full width */
+  body {
+    width: 100%;
+    
+  }
+  
