@@ -134,11 +134,10 @@ const Header = ({ openPopup }) => {
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center gap-2"
               >
- <img
+            <img
   src={user?.profilePicture || profilePlaceholder}
   alt="Profile"
   className="h-10 w-10 rounded-full object-cover"
-  key={user?.profilePicture} // This forces re-render when image changes
 />
 
                 <span>{user.username}</span>

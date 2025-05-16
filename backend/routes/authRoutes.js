@@ -5,9 +5,9 @@ const bcrypt = require("bcryptjs");
 const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage() });
 
-const router = express.Router();
-const cloudinary = require('cloudinary').v2; // Make sure to use .v2
 
+const router = express.Router();
+const cloudinary = require("../cloudinary");
 
 router.post("/register", async (req, res) => {
   try {
@@ -187,56 +187,35 @@ router.put("/update-password/:userId", async (req, res) => {
 
 
 
-router.post(
-  "/upload-profile-picture/:id",
-  upload.single('profileImage'),
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ 
-          success: false,
-          message: "No image file provided" 
-        });
-      }
-
-      // Convert buffer to base64 for Cloudinary
-      const fileBase64 = req.file.buffer.toString('base64');
-      const fileUri = `data:${req.file.mimetype};base64,${fileBase64}`;
-
-      // Upload to Cloudinary
-      const uploadResponse = await cloudinary.uploader.upload(fileUri, {
-        folder: "profile-pictures",
-        resource_type: "auto"
-      });
-
-      const updatedUser = await User.findByIdAndUpdate(
-        req.params.id,
-        { profilePicture: uploadResponse.secure_url },
-        { new: true }
-      ).select('-password');
-
-      if (!updatedUser) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found"
-        });
-      }
-
-      res.json({
-        success: true,
-        profilePicture: uploadResponse.secure_url,
-        user: updatedUser
-      });
-    } catch (error) {
-      console.error("Error uploading profile picture:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to upload profile picture",
-        error: error.message
-      });
+router.post("/upload-profile-picture/:id", async (req, res) => {
+  try {
+    const { image } = req.body; 
+    if (!image) {
+      return res.status(400).json({ message: "No image provided" });
     }
+
+    const uploadResponse = await cloudinary.uploader.upload(image, {
+      folder: "profile-pictures",
+    });
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { profilePicture: uploadResponse.secure_url },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(updatedUser);
+  } catch (error) {
+    console.error("Error uploading profile picture:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
-);
+});  // <-- Added this closing parenthesis here
+
+
 
 
 module.exports = router;

@@ -114,6 +114,7 @@
 
 // export const useAuth = () => useContext(AuthContext);
 
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -155,16 +156,17 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
+        // Set the token immediately
         setToken(storedToken);
         
+        // If we have user data in localStorage, use it
         if (storedUser) {
           setUser(JSON.parse(storedUser));
         } else {
-          const userId = JSON.parse(atob(storedToken.split('.')[1])).userId;
-          const response = await axios.get(`http://localhost:5000/api/user/${userId}`);
-          const userData = response.data;
-          setUser(userData);
-          localStorage.setItem("user", JSON.stringify(userData));
+          // Fetch user data if not in localStorage
+          const response = await axios.get(`http://localhost:5000/api/user/${JSON.parse(atob(storedToken.split('.')[1])).userId}`);
+          setUser(response.data);
+          localStorage.setItem("user", JSON.stringify(response.data));
         }
       } catch (err) {
         console.error("Auth initialization error:", err);
@@ -208,39 +210,6 @@ export const AuthProvider = ({ children }) => {
     navigate("/login");
   };
 
-  // Add this new function to update specific user fields
-  const updateUserField = async (fieldUpdates) => {
-    try {
-      const updatedUser = { ...user, ...fieldUpdates };
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-    } catch (error) {
-      console.error("Error updating user field:", error);
-      throw error;
-    }
-  };
-
-  // Enhanced refresh function that can optionally force a server refresh
-  const refreshUserData = async (forceRefresh = false) => {
-    try {
-      const storedToken = localStorage.getItem("token");
-      if (!storedToken) return;
-
-      const userId = JSON.parse(atob(storedToken.split('.')[1])).userId;
-      
-      // Only hit the server if forced or if we don't have user data
-      if (forceRefresh || !user) {
-        const response = await axios.get(`http://localhost:5000/api/user/${userId}`);
-        const updatedUser = response.data;
-        setUser(updatedUser);
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-      }
-    } catch (error) {
-      console.error("Failed to refresh user data:", error);
-      logout();
-    }
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -250,9 +219,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         loading,
         setRedirectPath,
-        isAuthenticated: !!token,
-        refreshUserData,
-        updateUserField // Add this to context
+        isAuthenticated: !!token
       }}
     >
       {children}

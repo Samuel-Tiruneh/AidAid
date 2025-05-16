@@ -4,12 +4,12 @@ import { FiUser, FiMail, FiLock, FiGlobe, FiSave } from "react-icons/fi";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 import RequesterChangePassword from "./RequesterChangePassword";
-import axios from "axios";
+
 // Use your own placeholder image path here
 const profilePlaceholder = "https://via.placeholder.com/150";
 
 const RequesterProfile = () => {
-  const { user, token, refreshUserData,} = useAuth();
+  const { user, token, refreshUserData } = useAuth();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [profile, setProfile] = useState({
     username: "",
@@ -56,85 +56,83 @@ const RequesterProfile = () => {
     }
   };
 
-const handleProfileSubmit = async (e) => {
-  e.preventDefault();
-  const userId = user?._id || user?.id;
-  
-  if (!userId) {
-    setMessage({
-      text: "Cannot update profile: User information is missing. Please log in again.",
-      type: "error",
-    });
-    return;
-  }
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    if (!user || !user.id) {
+      setMessage({
+        text: "Cannot update profile: User information is missing. Please log in again.",
+        type: "error",
+      });
+      return;
+    }
+    setIsLoading(true);
 
-  setIsLoading(true);
+    try {
+      // Prepare the update data
+      const updateData = {
+        username: profile.username,
+        email: profile.email,
+        phoneNumber: profile.phoneNumber,
+        location: profile.location,
+        bio: profile.bio,
+      };
 
-  try {
-    // Prepare the update data
-    const updateData = {
-      username: profile.username,
-      email: profile.email,
-      phoneNumber: profile.phoneNumber,
-      location: profile.location,
-      bio: profile.bio,
-    };
+      // Upload profile picture if changed
+      if (profilePictureFile) {
+        const formData = new FormData();
+        formData.append("profileImage", profilePictureFile);
 
-    // Upload profile picture if changed
-    if (profilePictureFile) {
-      const formData = new FormData();
-      formData.append("profileImage", profilePictureFile);
+        const uploadResponse = await fetch(
+          `http://localhost:5000/api/auth/upload-profile-picture/${user.id}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token || localStorage.getItem("token")}`,
+            },
+            body: formData,
+          }
+        );
 
-      const uploadResponse = await axios.post(
-        `http://localhost:5000/api/auth/upload-profile-picture/${userId}`,
-        formData,
+        if (!uploadResponse.ok) {
+          throw new Error("Failed to upload profile picture");
+        }
+
+        const uploadData = await uploadResponse.json();
+        // Save the returned image URL to updateData
+        updateData.profilePicture = uploadData.profilePicture;
+      }
+
+      // Update profile information
+      const response = await fetch(
+        `http://localhost:5000/api/auth/update-profile/${user.id}`,
         {
+          method: "PUT",
           headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token || localStorage.getItem("token")}`,
           },
+          body: JSON.stringify(updateData),
         }
       );
 
-      if (uploadResponse.data.success) {
-        updateData.profilePicture = uploadResponse.data.profilePicture;
-        // Immediately update profile picture in context and localStorage
-        await updateUserField({ profilePicture: uploadResponse.data.profilePicture });
-      } else {
-        throw new Error(uploadResponse.data.message || "Failed to upload profile picture");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update profile");
       }
-    }
 
-    // Update profile information
-    const response = await axios.put(
-      `http://localhost:5000/api/auth/update-profile/${userId}`,
-      updateData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      setMessage({ text: "Profile updated successfully!", type: "success" });
+
+      // Refresh user data in context to update navbar and other components
+      if (typeof refreshUserData === "function") {
+        await refreshUserData();
       }
-    );
-
-    // Update all user data in context if needed
-    if (response.data.user) {
-      await updateUserField(response.data.user);
+      setProfilePictureFile(null);
+    } catch (error) {
+      setMessage({ text: error.message, type: "error" });
+    } finally {
+      setIsLoading(false);
     }
-
-    setMessage({ text: "Profile updated successfully!", type: "success" });
-    setProfilePictureFile(null);
-    
-    // Optional: Force a full refresh from server to ensure consistency
-    await refreshUserData(true);
-  } catch (error) {
-    setMessage({ 
-      text: error.response?.data?.message || error.message || "Update failed",
-      type: "error" 
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handlePasswordSubmit = async (passwords) => {
     setIsLoading(true);
