@@ -9,7 +9,7 @@ import axios from "axios";
 const profilePlaceholder = "https://via.placeholder.com/150";
 
 const RequesterProfile = () => {
-  const { user, token, refreshUserData } = useAuth();
+  const { user, token, refreshUserData,} = useAuth();
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [profile, setProfile] = useState({
     username: "",
@@ -56,7 +56,7 @@ const RequesterProfile = () => {
     }
   };
 
- const handleProfileSubmit = async (e) => {
+const handleProfileSubmit = async (e) => {
   e.preventDefault();
   const userId = user?._id || user?.id;
   
@@ -98,6 +98,8 @@ const RequesterProfile = () => {
 
       if (uploadResponse.data.success) {
         updateData.profilePicture = uploadResponse.data.profilePicture;
+        // Immediately update profile picture in context and localStorage
+        await updateUserField({ profilePicture: uploadResponse.data.profilePicture });
       } else {
         throw new Error(uploadResponse.data.message || "Failed to upload profile picture");
       }
@@ -114,13 +116,16 @@ const RequesterProfile = () => {
       }
     );
 
-    setMessage({ text: "Profile updated successfully!", type: "success" });
-
-    // Refresh user data in context
-    if (typeof refreshUserData === "function") {
-      await refreshUserData();
+    // Update all user data in context if needed
+    if (response.data.user) {
+      await updateUserField(response.data.user);
     }
+
+    setMessage({ text: "Profile updated successfully!", type: "success" });
     setProfilePictureFile(null);
+    
+    // Optional: Force a full refresh from server to ensure consistency
+    await refreshUserData(true);
   } catch (error) {
     setMessage({ 
       text: error.response?.data?.message || error.message || "Update failed",
